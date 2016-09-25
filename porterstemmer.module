@@ -1,0 +1,58 @@
+<?php
+
+/**
+ * @file
+ * Contains porterstemmer.module.
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_help().
+ */
+function porterstemmer_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    // Main module help for the porterstemmer module.
+    case 'help.page.porterstemmer':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('Improves American English language searching by simplifying related words to their root (conjugations, plurals, ...).') . '</p>';
+      return $output;
+
+    default:
+  }
+}
+
+/**
+ * Implements hook_search_preprocess().
+ *
+ * Stems the words in $text, using stemmer(s) provided by the search_stemmer
+ * plugin type. The standard plugin included in the module uses the Porter 2
+ * stemming algorithm, appropriate for English language indexing.
+ */
+function porterstemmer_search_preprocess($text, $langcode = NULL) {
+  // If the language is not set, get it from the language manager.
+  if (!isset($langcode)) {
+    $langcode = \Drupal::languageManager()->getCurrentLanguage()->getId();
+  }
+
+  $plugins = array();
+  $type = \Drupal::service('plugin.manager.stemmer_plugin.processor');
+  $plugin_definitions = $type->getDefinitions();
+  // Discover all applicable stemmer plugins for the language.
+  foreach ($plugin_definitions as $definition) {
+    if ($definition['language'] == $langcode) {
+      $plugins[] = $definition['id'];
+    }
+  }
+  if (!empty($plugins)) {
+    // Allow each language-applicable stemmer to run in sequence.
+    foreach ($plugins as $plugin) {
+      $class = $plugin_definitions[$plugin]['class'];
+      $stem = new $class($text);
+      $text = $stem->stemText();
+    }
+  }
+
+  return $text;
+}
