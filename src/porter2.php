@@ -46,12 +46,10 @@ class porter2 {
    *
    * @param string $word
    *   The word to stem.
-   * @param string[] $custom_exceptions
-   *   (optional) A custom list of exceptions.
    */
-  protected static function prepare($word, $custom_exceptions = array()) {
+  protected static function prepare($word) {
     self::$word = $word;
-    self::$exceptions = $custom_exceptions + array(
+    self::$exceptions = array(
       'skis' => 'ski',
       'skies' => 'sky',
       'dying' => 'die',
