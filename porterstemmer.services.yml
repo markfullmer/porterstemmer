@@ -1,4 +1,5 @@
 services:
-  plugin.manager.stemmer_plugin.processor:
-    class: Drupal\porterstemmer\Plugin\StemmerPluginManager
-    parent: default_plugin_manager
+  porterstemmer.default:
+    class: Drupal\porterstemmer\porter2
+    arguments: []
+
