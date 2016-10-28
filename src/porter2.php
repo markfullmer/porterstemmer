@@ -7,49 +7,17 @@ namespace Drupal\porterstemmer;
  *
  * See http://snowball.tartarus.org/algorithms/english/stemmer.html .
  */
-class porter2 {
+class Porter2 {
 
   /**
-   * The word being stemmed.
+   * Computes the stem of the word.
    *
-   * @var string
+   * @return string
+   *   The word's stem.
    */
-  protected static $word;
+  public static function stem($word) {
 
-  /**
-   * The R1 of the word.
-   *
-   * @var int
-   *
-   * @see http://snowball.tartarus.org/texts/r1r2.html.
-   */
-  protected static $r1;
-
-  /**
-   * The R2 of the word.
-   *
-   * @var int
-   *
-   * @see http://snowball.tartarus.org/texts/r1r2.html.
-   */
-  protected static $r2;
-
-  /**
-   * List of exceptions to be used.
-   *
-   * @var string[]
-   */
-  protected static $exceptions = array();
-
-  /**
-   * Constructs a SearchApiPorter2 object.
-   *
-   * @param string $word
-   *   The word to stem.
-   */
-  protected static function prepare($word) {
-    self::$word = $word;
-    self::$exceptions = array(
+    $exceptions = array(
       'skis' => 'ski',
       'skies' => 'sky',
       'dying' => 'die',
@@ -70,118 +38,116 @@ class porter2 {
       'andes' => 'andes',
     );
 
-    // Set initial y, or y after a vowel, to Y.
-    $inc = 0;
-    while ($inc <= self::length()) {
-      if (substr(self::$word, $inc, 1) === 'y' && ($inc == 0 || self::isVowel($inc - 1))) {
-        self::$word = substr_replace(self::$word, 'Y', $inc, 1);
+    // Process exceptions.
+    if (isset($exceptions[$word])) {
+      $word = $exceptions[$word];
+    }
+    elseif (strlen($word) > 2) {
+      // Only execute algorithm on words that are longer than two letters.
+      $word = self::prepare($word);
+      $word = self::step0($word);
+      $word = self::step1a($word);
+      $word = self::step1b($word);
+      $word = self::step1c($word);
+      $word = self::step2($word);
+      $word = self::step3($word);
+      $word = self::step4($word);
+      $word = self::step5($word);
+    }
+    return strtolower($word);
+  }
 
+  /**
+   * Set initial y, or y after a vowel, to Y.
+   *
+   * @param string $word
+   *   The word to stem.
+   *
+   * @return string $word
+   *   The prepared word.
+   */
+  protected static function prepare($word) {
+    $inc = 0;
+    while ($inc <= strlen($word)) {
+      if (substr($word, $inc, 1) === 'y' && ($inc == 0 || self::isVowel($inc - 1, $word))) {
+        $word = substr_replace($word, 'Y', $inc, 1);
       }
       $inc++;
     }
-    // Establish the regions R1 and R2. See function R().
-    self::$r1 = self::R(1);
-    self::$r2 = self::R(2);
+    return $word;
   }
 
   /**
-   * Computes the stem of the word.
+   * Search for the longest among the "s" suffixes and removes it.
    *
-   * @return string
-   *   The word's stem.
+   * @param string $word
+   *   The word to stem.
+   *
+   * @return string $word
+   *   The modified word.
    */
-  public static function stem($word) {
-    self::prepare($word);
-    // Ignore exceptions & words that are two letters or less.
-    if (self::exceptions() || self::length() <= 2) {
-      return strtolower(self::$word);
-    }
-    else {
-      self::step0();
-      self::step1a();
-      self::step1b();
-      self::step1c();
-      self::step2();
-      self::step3();
-      self::step4();
-      self::step5();
-    }
-    return strtolower(self::$word);
-  }
-
-  /**
-   * Determines whether the word is contained in our list of exceptions.
-   *
-   * If so, the $word property is changed to the stem listed in the exceptions.
-   *
-   * @return bool
-   *   TRUE if the word was an exception, FALSE otherwise.
-   */
-  protected static function exceptions() {
-    if (isset(self::$exceptions[self::$word])) {
-      self::$word = self::$exceptions[self::$word];
-      return TRUE;
-    }
-    return FALSE;
-  }
-
-  /**
-   * Searches for the longest among the "s" suffixes and removes it.
-   *
-   * Implements step 0 of the Porter2 algorithm.
-   */
-  protected static function step0() {
+  protected static function step0($word) {
     $found = FALSE;
     $checks = array("'s'", "'s", "'");
     foreach ($checks as $check) {
-      if (!$found && self::hasEnding($check)) {
-        self::removeEnding($check);
+      if (!$found && self::hasEnding($word, $check)) {
+        $word = removeEnding($word, $check);
         $found = TRUE;
       }
     }
+    return $word;
   }
 
   /**
    * Handles various suffixes, of which the longest is replaced.
    *
-   * Implements step 1a of the Porter2 algorithm.
+   * @param string $word
+   *   The word to stem.
+   *
+   * @return string $word
+   *   The modified word.
    */
-  protected static function step1a() {
+  protected static function step1a($word) {
     $found = FALSE;
-    if (self::hasEnding('sses')) {
-      self::removeEnding('sses');
-      self::addEnding('ss');
+    if (self::hasEnding($word, 'sses')) {
+      $word = self::removeEnding($word, 'sses') . 'ss';
       $found = TRUE;
     }
     $checks = array('ied', 'ies');
     foreach ($checks as $check) {
-      if (!$found && self::hasEnding($check)) {
-        $length = self::length();
-        self::removeEnding($check);
+      if (!$found && self::hasEnding($word, $check)) {
+        // @todo: check order here.
+        $length = strlen($word);
+        $word = self::removeEnding($word, $check);
         if ($length > 4) {
-          self::addEnding('i');
+          $word .= 'i';
         }
         else {
-          self::addEnding('ie');
+          $word .= 'ie';
         }
         $found = TRUE;
       }
     }
-    if (self::hasEnding('us') || self::hasEnding('ss')) {
+    if (self::hasEnding($word, 'us') || self::hasEnding($word, 'ss')) {
       $found = TRUE;
     }
     // Delete if preceding word part has a vowel not immediately before the s.
-    if (!$found && self::hasEnding('s') && self::containsVowel(substr(self::$word, 0, -2))) {
-      self::removeEnding('s');
+    if (!$found && self::hasEnding($word, 's') && self::containsVowel(substr($word, 0, -2))) {
+      $word = self::removeEnding($word, 's');
     }
+    return $word;
   }
 
   /**
    * Handles various suffixes, of which the longest is replaced.
    *
-   * Implements step 1b of the Porter2 algorithm.
+   * @param string $word
+   *   The word to stem.
+   *
+   * @return string $word
+   *   The modified word.
    */
-  protected static function step1b() {
+  protected static function step1b($word) {
     $exceptions = array(
       'inning',
       'outing',
@@ -192,58 +158,71 @@ class porter2 {
       'exceed',
       'succeed',
     );
-    if (in_array(self::$word, $exceptions)) {
-      return;
+    if (in_array($word, $exceptions)) {
+      return $word;
     }
     $checks = array('eedly', 'eed');
     foreach ($checks as $check) {
-      if (self::hasEnding($check)) {
-        if (self::$r1 !== self::length()) {
-          self::removeEnding($check);
-          self::addEnding('ee');
+      if (self::hasEnding($word, $check)) {
+        if (self::r($word, 1) !== strlen($word)) {
+          $word = self::removeEnding($word, $check) . 'ee';
         }
-        return;
+        return $word;
       }
     }
     $checks = array('ingly', 'edly', 'ing', 'ed');
     $second_endings = array('at', 'bl', 'iz');
     foreach ($checks as $check) {
       // If the ending is present and the previous part contains a vowel.
-      if (self::hasEnding($check) && self::containsVowel(substr(self::$word, 0, -strlen($check)))) {
-        self::removeEnding($check);
+      if (self::hasEnding($word, $check) && self::containsVowel(substr($word, 0, -strlen($check)))) {
+        $word = self::removeEnding($word, $check);
         foreach ($second_endings as $ending) {
-          if (self::hasEnding($ending)) {
-            self::addEnding('e');
-            return;
+          if (self::hasEnding($word, $ending)) {
+            return $word . 'e';
           }
         }
         // If the word ends with a double, remove the last letter.
-        $found = self::removeDoubles();
-        // If the word is short, add e (so hop -> hope).
-        if (!$found && (self::isShort())) {
-          self::addEnding('e');
+        $double_removed = self::removeDoubles($word);
+        if ($double_removed != $word) {
+          $word = $double_removed;
         }
-        return;
+        elseif (self::isShort($word)) {
+          // If the word is short, add e (so hop -> hope).
+          $word .= 'e';
+        }
+        return $word;
       }
     }
+    return $word;
   }
 
   /**
    * Replaces suffix y or Y with i if after non-vowel not @ word begin.
    *
-   * Implements step 1c of the Porter2 algorithm.
+   * @param string $word
+   *   The word to stem.
+   *
+   * @return string $word
+   *   The modified word.
    */
-  protected static function step1c() {
-    if ((self::hasEnding('y') || self::hasEnding('Y')) && self::length() > 2 && !(self::isVowel(self::length() - 2))) {
-      self::removeEnding('y');
-      self::addEnding('i');
+  protected static function step1c($word) {
+    if ((self::hasEnding($word, 'y') || self::hasEnding($word, 'Y')) && strlen($word) > 2 && !(self::isVowel(strlen($word) - 2, $word))) {
+      $word = self::removeEnding($word, 'y');
+      $word .= 'i';
     }
+    return $word;
   }
 
   /**
    * Implements step 2 of the Porter2 algorithm.
+   *
+   * @param string $word
+   *   The word to stem.
+   *
+   * @return string $word
+   *   The modified word.
    */
-  protected static function step2() {
+  protected static function step2($word) {
     $checks = array(
       "ization" => "ize",
       "iveness" => "ive",
@@ -270,25 +249,31 @@ class porter2 {
       "ogi" => "og",
     );
     foreach ($checks as $find => $replace) {
-      if (self::hasEnding($find)) {
-        if (self::inR1($find)) {
-          self::removeEnding($find);
-          self::addEnding($replace);
+      if (self::hasEnding($word, $find)) {
+        if (self::inR1($word, $find)) {
+          $word = self::removeEnding($word, $find) . $replace;
         }
-        return;
+        return $word;
       }
     }
-    if (self::hasEnding('li')) {
-      if (self::length() > 4 && self::validLi(self::charAt(-3))) {
-        self::removeEnding('li');
+    if (self::hasEnding($word, 'li')) {
+      if (strlen($word) > 4 && self::validLi(self::charAt(-3, $word))) {
+        $word = self::removeEnding($word, 'li');
       }
     }
+    return $word;
   }
 
   /**
    * Implements step 3 of the Porter2 algorithm.
+   *
+   * @param string $word
+   *   The word to stem.
+   *
+   * @return string $word
+   *   The modified word.
    */
-  protected static function step3() {
+  protected static function step3($word) {
     $checks = array(
       'ational' => 'ate',
       'tional' => 'tion',
@@ -300,25 +285,31 @@ class porter2 {
       'ful' => '',
     );
     foreach ($checks as $find => $replace) {
-      if (self::hasEnding($find)) {
-        if (self::inR1($find)) {
-          self::removeEnding($find);
-          self::addEnding($replace);
+      if (self::hasEnding($word, $find)) {
+        if (self::inR1($word, $find)) {
+          $word = self::removeEnding($word, $find) . $replace;
         }
-        return;
+        return $word;
       }
     }
-    if (self::hasEnding('ative')) {
-      if (self::inR2('ative')) {
-        self::removeEnding('ative');
+    if (self::hasEnding($word, 'ative')) {
+      if (self::inR2($word, 'ative')) {
+        $word = self::removeEnding($word, 'ative');
       }
     }
+    return $word;
   }
 
   /**
    * Implements step 4 of the Porter2 algorithm.
+   *
+   * @param string $word
+   *   The word to stem.
+   *
+   * @return string $word
+   *   The modified word.
    */
-  protected static function step4() {
+  protected static function step4($word) {
     $checks = array(
       'ement',
       'ment',
@@ -341,53 +332,62 @@ class porter2 {
     );
     foreach ($checks as $check) {
       // Among the suffixes, if found and in R2, delete.
-      if (self::hasEnding($check)) {
-        if (self::inR2($check)) {
-          if ($check !== 'ion' || in_array(self::charAt(-4), array('s', 't'))) {
-            self::removeEnding($check);
+      if (self::hasEnding($word, $check)) {
+        if (self::inR2($word, $check)) {
+          if ($check !== 'ion' || in_array(self::charAt(-4, $word), array('s', 't'))) {
+            $word = self::removeEnding($word, $check);
           }
         }
-        return;
+        return $word;
       }
     }
+    return $word;
   }
 
   /**
    * Implements step 5 of the Porter2 algorithm.
+   *
+   * @param string $word
+   *   The word to stem.
+   *
+   * @return string $word
+   *   The modified word.
    */
-  protected static function step5() {
-    if (self::hasEnding('e')) {
+  protected static function step5($word) {
+    if (self::hasEnding($word, 'e')) {
       // Delete if in R2, or in R1 and not preceded by a short syllable.
-      if (self::inR2('e') || (self::inR1('e') && !self::isShortSyllable(self::length() - 3))) {
-        self::removeEnding('e');
+      if (self::inR2($word, 'e') || (self::inR1($word, 'e') && !self::isShortSyllable($word, strlen($word) - 3))) {
+        $word = self::removeEnding($word, 'e');
       }
-      return;
+      return $word;
     }
-    if (self::hasEnding('l')) {
+    if (self::hasEnding($word, 'l')) {
       // Delete if in R2 and preceded by l.
-      if (self::inR2('l') && self::charAt(-2) == 'l') {
-        self::removeEnding('l');
+      if (self::inR2($word, 'l') && self::charAt(-2, $word) == 'l') {
+        $word = self::removeEnding($word, 'l');
       }
     }
+    return $word;
   }
 
   /**
    * Removes certain double consonants from the word's end.
    *
-   * @return bool
-   *   TRUE if a match was found and removed, FALSE otherwise.
+   * @param string $word
+   *   The word to stem.
+   *
+   * @return string $word
+   *   The modified word.
    */
-  protected static function removeDoubles() {
-    $found = FALSE;
+  protected static function removeDoubles($word) {
     $doubles = array('bb', 'dd', 'ff', 'gg', 'mm', 'nn', 'pp', 'rr', 'tt');
     foreach ($doubles as $double) {
-      if (substr(self::$word, -2) == $double) {
-        self::$word = substr(self::$word, 0, -1);
-        $found = TRUE;
+      if (substr($word, -2) == $double) {
+        $word = substr($word, 0, -1);
         break;
       }
     }
-    return $found;
+    return $word;
   }
 
   /**
@@ -395,18 +395,15 @@ class porter2 {
    *
    * @param int $position
    *   The character's position.
-   * @param string|null $word
-   *   (optional) The word in which to check. Defaults to self::$word.
+   * @param string $word
+   *   The word in which to check.
    * @param string[] $additional
    *   (optional) Additional characters that should count as vowels.
    *
    * @return bool
    *   TRUE if the character is a vowel, FALSE otherwise.
    */
-  protected static function isVowel($position, $word = NULL, $additional = array()) {
-    if ($word === NULL) {
-      $word = self::$word;
-    }
+  protected static function isVowel($position, $word, $additional = array()) {
     $vowels = array_merge(array('a', 'e', 'i', 'o', 'u', 'y'), $additional);
     return in_array(self::charAt($position, $word), $vowels);
   }
@@ -417,18 +414,14 @@ class porter2 {
    * @param int $position
    *   The 0-based index of the character. If a negative number is given, the
    *   position is counted from the end of the string.
-   * @param string|null $word
-   *   (optional) The word from which to retrieve the character. Defaults to
-   *   self::$word.
+   * @param string $word
+   *   The word from which to retrieve the character.
    *
    * @return string
    *   The character at the given position, or an empty string if the given
    *   position was illegal.
    */
-  protected static function charAt($position, $word = NULL) {
-    if ($word === NULL) {
-      $word = self::$word;
-    }
+  protected static function charAt($position, $word) {
     $length = strlen($word);
     if (abs($position) >= $length) {
       return '';
@@ -452,18 +445,18 @@ class porter2 {
    * @return bool
    *   TRUE if the word has the described suffix, FALSE otherwise.
    */
-  protected static function isShortSyllable($position = NULL) {
+  protected static function isShortSyllable($word, $position = NULL) {
     if ($position === NULL) {
-      $position = self::length() - 2;
+      $position = strlen($word) - 2;
     }
     // A vowel at the beginning of the word followed by a non-vowel.
     if ($position === 0) {
-      return self::isVowel(0) && !self::isVowel(1);
+      return self::isVowel(0, $word) && !self::isVowel(1, $word);
     }
     // Vowel followed by non-vowel other than w, x, Y and preceded by
     // non-vowel.
     $additional = array('w', 'x', 'Y');
-    return !self::isVowel($position - 1) && self::isVowel($position) && !self::isVowel($position + 1, NULL, $additional);
+    return !self::isVowel($position - 1, $word) && self::isVowel($position, $word) && !self::isVowel($position + 1, $word, $additional);
   }
 
   /**
@@ -474,8 +467,8 @@ class porter2 {
    * @return bool
    *   TRUE if the word is short, FALSE otherwise.
    */
-  protected static function isShort() {
-    return self::isShortSyllable() && self::$r1 == self::length();
+  protected static function isShort($word) {
+    return self::isShortSyllable($word) && self::r($word, 1) == strlen($word);
   }
 
   /**
@@ -489,30 +482,30 @@ class porter2 {
    * @return int
    *   The R position.
    */
-  protected static function R($type = 1) {
+  protected static function r($word, $type = 1) {
     $inc = 1;
     if ($type === 2) {
-      $inc = self::$r1;
+      $inc = self::r($word, 1);
     }
-    elseif (self::length() > 5) {
-      $prefix_5 = substr(self::$word, 0, 5);
+    elseif (strlen($word) > 5) {
+      $prefix_5 = substr($word, 0, 5);
       if ($prefix_5 === 'gener' || $prefix_5 === 'arsen') {
         return 5;
       }
-      if (self::length() > 6 && substr(self::$word, 0, 6) === 'commun') {
+      if (strlen($word) > 5 && substr($word, 0, 6) === 'commun') {
         return 6;
       }
     }
 
-    while ($inc <= self::length()) {
-      if (!self::isVowel($inc) && self::isVowel($inc - 1)) {
+    while ($inc <= strlen($word)) {
+      if (!self::isVowel($inc, $word) && self::isVowel($inc - 1, $word)) {
         $position = $inc;
         break;
       }
       $inc++;
     }
     if (!isset($position)) {
-      $position = self::length();
+      $position = strlen($word);
     }
     else {
       // We add one, as this is the position AFTER the first non-vowel.
@@ -530,8 +523,8 @@ class porter2 {
    * @return bool
    *   TRUE if the string is in R1, FALSE otherwise.
    */
-  protected static function inR1($string) {
-    $r1 = substr(self::$word, self::$r1);
+  protected static function inR1($word, $string) {
+    $r1 = substr($word, self::r($word, 1));
     return strpos($r1, $string) !== FALSE;
   }
 
@@ -544,19 +537,9 @@ class porter2 {
    * @return bool
    *   TRUE if the string is in R2, FALSE otherwise.
    */
-  protected static function inR2($string) {
-    $r2 = substr(self::$word, self::$r2);
+  protected static function inR2($word, $string) {
+    $r2 = substr($word, self::r($word, 2));
     return strpos($r2, $string) !== FALSE;
-  }
-
-  /**
-   * Determines the string length of the current word.
-   *
-   * @return int
-   *   The string length of the current word.
-   */
-  protected static function length() {
-    return strlen(self::$word);
   }
 
   /**
@@ -568,22 +551,12 @@ class porter2 {
    * @return bool
    *   TRUE if the word ends with the given string, FALSE otherwise.
    */
-  protected static function hasEnding($string) {
+  protected static function hasEnding($word, $string) {
     $length = strlen($string);
-    if ($length > self::length()) {
+    if ($length > strlen($word)) {
       return FALSE;
     }
-    return (substr_compare(self::$word, $string, -1 * $length, $length) === 0);
-  }
-
-  /**
-   * Appends a given string to the current word.
-   *
-   * @param string $string
-   *   The ending to append.
-   */
-  protected static function addEnding($string) {
-    self::$word = self::$word . $string;
+    return (substr_compare($word, $string, -1 * $length, $length) === 0);
   }
 
   /**
@@ -594,8 +567,8 @@ class porter2 {
    * @param string $string
    *   The ending to remove.
    */
-  protected static function removeEnding($string) {
-    self::$word = substr(self::$word, 0, -strlen($string));
+  protected static function removeEnding($word, $string) {
+    return substr($word, 0, -strlen($string));
   }
 
   /**
