@@ -6,7 +6,7 @@
  */
 
 use Drupal\Core\Routing\RouteMatchInterface;
-use Drupal\porterstemmer\porter2;
+use Drupal\porterstemmer\Porter2;
 
 /**
  * Regular expression defining a word boundary for Porter Stemmer.
@@ -34,9 +34,7 @@ function porterstemmer_help($route_name, RouteMatchInterface $route_match) {
 /**
  * Implements hook_search_preprocess().
  *
- * Stems the words in $text, using stemmer(s) provided by the search_stemmer
- * plugin type. The standard plugin included in the module uses the Porter 2
- * stemming algorithm, appropriate for English language indexing.
+ * Stems the words in $text, using the Porter 2 (English) stemming algorithm.
  */
 function porterstemmer_search_preprocess($text, $langcode = NULL) {
   // If the language is not set, get it from the language manager.
@@ -66,7 +64,7 @@ function porterstemmer_search_preprocess($text, $langcode = NULL) {
           $words[$k] = stem_english($word);
         }
         else {
-          $words[$k] = porter2::stem($word);
+          $words[$k] = Porter2::stem($word);
         }
       }
       $isword = !$isword;
