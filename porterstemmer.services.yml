@@ -1,5 +1,0 @@
-services:
-  porterstemmer.default:
-    class: Drupal\porterstemmer\porter2
-    arguments: []
-
