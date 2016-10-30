@@ -16,38 +16,25 @@ use Drupal\porterstemmer\Porter2;
 class Porter2Test extends UnitTestCase {
 
   /**
-   * Test AddClass::add() with a data provider method.
+   * Test Porter2::stem() with a data provider method.
    *
    * Uses the data provider method to test with a wide range of words/stems.
    *
-   * @dataProvider addDataProvider
-   *
-   * @see AddClassTest::addDataProvider()
+   * @dataProvider stemDataProvider
    */
-  public function testAddWithDataProvider($word, $stem) {
+  public function testStem($word, $stem) {
     $this->assertEquals($stem, Porter2::stem($word));
   }
 
   /**
-   * Data provider for testAddWithDataProvider().
-   *
-   * Data provider methods take no arguments and return an array of data
-   * to use for tests. Each element of the array is another array, which
-   * corresponds to the arguments in the test method's signature.
-   *
-   * Note also that PHPUnit tries to run tests using methods that begin
-   * with 'test'. This means that data provider method names should not
-   * begin with 'test'. Also, by convention, they should end with
-   * 'DataProvider'.
+   * Data provider for testStem().
    *
    * @return array
    *   Nested arrays of values to check:
    *   - $word
    *   - $stem
-   *
-   * @see AddClassTest::testAddWithDataProvider()
    */
-  public function addDataProvider() {
+  public function stemDataProvider() {
     return array(
       array('TestCharacters@#/#$%^*()', 'testcharacters@#/#$%^*()'),
       array('test space', 'test spac'),
