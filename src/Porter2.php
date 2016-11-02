@@ -68,6 +68,9 @@ class Porter2 {
    */
   protected static function prepare($word) {
     $inc = 0;
+    if (strpos($word, "'") === 0) {
+      $word = substr($word, 1);
+    }
     while ($inc <= strlen($word)) {
       if (substr($word, $inc, 1) === 'y' && ($inc == 0 || self::isVowel($inc - 1, $word))) {
         $word = substr_replace($word, 'Y', $inc, 1);
@@ -91,7 +94,7 @@ class Porter2 {
     $checks = array("'s'", "'s", "'");
     foreach ($checks as $check) {
       if (!$found && self::hasEnding($word, $check)) {
-        $word = removeEnding($word, $check);
+        $word = self::removeEnding($word, $check);
         $found = TRUE;
       }
     }
